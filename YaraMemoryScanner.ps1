@@ -1,4 +1,4 @@
-$yarafile = $args[0]
+ $yarafile = $args[0]
 $ProgressPreference = "SilentlyContinue"
 
 <#
@@ -40,9 +40,31 @@ function ScanProcesses{
         If a YARA Rule matches, the following will evaluate to "TRUE' and
         we will document additional information about the flagged process. 
         #>
-        if ($result = .\yara64\yara64.exe $yarafile $_.ID -D -p 10) {
-            Write-Output "The following rule matched the following process:" $result
-		    Get-Process -Id $_.ID | Format-Table -Property Id, ProcessName, Path
+        if ($result = .\yara64\yara64.exe $yarafile $_.ID -s -f) {
+            $p = Get-Process -Id $_.ID 
+            $h = Get-FileHash $p.Path
+            $p_cmd = Get-CimInstance Win32_Process -Filter "ProcessId = $($p.Id)"
+            Write-Host "|| MATCHED! ||" -f White -BackgroundColor Red; 
+            Write-Host "PROCESS:" -f White -nonewline; Write-Host $p.Name
+            Write-Host "PID:" -f White -nonewline; Write-Host $p.Id
+            Write-Host "IMAGE PATH:" -f White -nonewline; Write-Host $p.Path
+            Write-Host "COMMANDLINE:" -f White -nonewline; Write-Host $p_cmd.CommandLine
+            Write-Host "SHA-256:" -f White -nonewline; Write-Host $h.Hash
+            Write-Host "MATCH:" -f White -nonewline; Write-Host $result
+            $ppp = Get-CimInstance Win32_Process -Filter "ProcessId = $($p_cmd.ProcessId)"
+            Write-Host "PARENT PROCESS:" -f White -nonewline; Write-Host $ppp.ProcessName -nonewline
+            Write-Host " PPID:" -f White -nonewline; Write-Host $p_cmd.ParentProcessId -nonewline
+            Write-Host " IMAGE PATH:" -f White -nonewline; Write-Host $ppp.ExecutablePath -nonewline
+            Write-Host " COMMANDLINE:" -f White -nonewline; Write-Host $ppp.CommandLine
+            foreach ($con in Get-NetTcpConnection -OwningProcess $p.Id -ErrorAction SilentlyContinue)
+            {
+                Write-Host "LHOST:" -f White -nonewline; Write-Host $con.LocalAddress -nonewline
+                Write-Host " LPORT:" -f White -nonewline; Write-Host $con.LocalPort -nonewline
+                Write-Host " RHOST:" -f White -nonewline; Write-Host $con.RemoteAddress -nonewline
+                Write-Host " RPORT:" -f White -nonewline; Write-Host $con.RemotePort
+            }
+
+            
 	    }
     } 2>&1 | Tee-Object -FilePath .\$outputFilename
 
@@ -96,4 +118,4 @@ elseif ($args[0] -match 'http.*\.(yara|yar)') {
 }
 else {
     ScanProcesses
-}
+} 
