@@ -32,14 +32,16 @@ function ScanProcesses{
     Expand-Archive yara64.zip -Force
     Clear-Host
     Write-Host "Scanning Processes"
+    $outputFileName =  "$yarafile$(get-date -f yyyyMMddhhmmss).txt"
+    Start-Transcript -Path .\$outputFilename -ErrorAction SilentlyContinue
     $host.UI.RawUI.ForegroundColor = "Red"
     $host.UI.RawUI.BackgroundColor = "Black"
-    $outputFileName =  "$yarafile$(get-date -f yyyyMMddhhmmss).txt"
     Get-Process | ForEach-Object {
 	    <#
         If a YARA Rule matches, the following will evaluate to "TRUE' and
         we will document additional information about the flagged process. 
         #>
+        
         if ($result = .\yara64\yara64.exe $yarafile $_.ID -s -f) {
             $p = Get-Process -Id $_.ID 
             $h = Get-FileHash $p.Path
@@ -66,7 +68,8 @@ function ScanProcesses{
 
             
 	    }
-    } 2>&1 | Tee-Object -FilePath .\$outputFilename
+    } 
+    Stop-Transcript
 
     $host.UI.RawUI.ForegroundColor = "White"
     $host.UI.RawUI.BackgroundColor = "DarkMagenta"
